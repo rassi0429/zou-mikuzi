@@ -124,11 +124,13 @@ app.get("/mikuzi/:UserId", async (req, res) => {
         where: {
             userId: req.params.UserId,
             createdAt: {
-                // 日本時間で今日の0時以降
-                gte: new Date(new Date().toLocaleDateString('ja-JP', {timeZone: 'Asia/Tokyo'}))
+                // 日本時間の今日の0時
+                gte: new Date(new Date().toLocaleDateString("ja-JP", {timeZone: "Asia/Tokyo"})),
             }
         }
     })
+
+    console.log(mikuzi)
 
     if (mikuzi) {
         // もう今日は引いて、支払い済みな時
