@@ -125,7 +125,7 @@ app.get("/mikuzi/:UserId", async (req, res) => {
             userId: req.params.UserId,
             createdAt: {
                 // 日本時間の今日の0時
-                gte: new Date(new Date().toLocaleDateString("ja-JP", {timeZone: "Asia/Tokyo"})),
+                gte: new Date(new Date().getTime() - 9* 60 * 1000).setHours(0, 0, 0, 0)
             }
         }
     })
