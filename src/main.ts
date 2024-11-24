@@ -133,7 +133,12 @@ app.post("/mikuzi/:UserId", async (req, res) => {
     if (mikuzi) {
         // もう今日は引いて、支払い済みな時
         if(mikuzi.transactionId) {
-            res.send(`#${mikuzi.message}`)
+            // mikuzi.messageはJSONで、result, message, ganbo, renai, gakumon, shobai, byoukiが入ってる
+            // その順番で改行区切りで返す
+            const result = JSON.parse(mikuzi.message)
+            res.send(`${result.result}\n${result.message}\n${result.ganbo}\n${result.renai}\n${result.gakumon}\n${result.shobai}\n${result.byouki}`)
+
+            // res.send(`#${mikuzi.message}`)
         } else {
             const payUrl = `https://zoubank.resonite.love/send?sendTo=${zouBotUserId}&amount=100&customTransactionId=${mikuzi.customTransactionId}`
             res.send(payUrl)
