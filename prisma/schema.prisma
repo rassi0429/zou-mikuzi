@@ -15,7 +15,7 @@ datasource db {
 
 model MikuziLog {
   id                  String   @id @default(cuid())
-  createdAt           DateTime @default(now())
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
   userId              String
   customTransactionId String
   transactionId       Int?
