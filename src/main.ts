@@ -1,5 +1,7 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import {PrismaClient} from '@prisma/client';
+import {generateMikuzi} from "./chatgpt";
+
 const prisma = new PrismaClient();
 
 const initDB = async () => {
@@ -18,37 +20,153 @@ const initDB = async () => {
 
 initDB()
 
+
+const generateMikuziMessage = async () => {
+    const msg = await generateMikuzi()
+    if(msg) {
+        try {
+            const result = JSON.parse(msg)
+            if (result) {
+                // {"result": "", "message": "", "ganbo": "", "renai": "", "gakumon": "", "shobai":"", "byouki":""}
+                // の形式で出力されてるかチェック
+                if (result.result && result.message && result.ganbo && result.renai && result.gakumon && result.shobai && result.byouki) {
+                    return result
+                }
+                return null
+            }
+        } catch (e) {
+            return null
+        }
+    }
+    return null
+}
+
+let generatingMikuzi = false
+
+const initMikuzi = async () => {
+    if(generatingMikuzi) {
+        console.log("already generating mikuzi")
+        return
+    }
+    generatingMikuzi = true
+    try {
+        const count = await prisma.mikuziBuffer.count()
+        console.log("mikuzi count", count)
+        if (count < 50) {
+            for (let i = 0; i < 50 - count; i++) {
+                const mikuzi = await generateMikuziMessage()
+                if (mikuzi) {
+                    await prisma.mikuziBuffer.create({
+                        data: {
+                            message: JSON.stringify(mikuzi)
+                        }
+                    })
+                    console.log("generated mikuzi")
+                } else {
+                    console.log("failed to generate mikuzi")
+                }
+            }
+        }
+    } finally {
+        generatingMikuzi = false
+    }
+}
+
+initMikuzi()
+setInterval(initMikuzi, 1000 * 60 * 5)
+
+
 const app = express();
 
 const zouBotUserId = "cm3ucp0dr0017kle34sp87sz9"
 
-const int = setInterval(async () => {
+const shori = async () => {
+    console.log("shori batch start")
     const url = `https://zoubank.resonite.love/api/user/${zouBotUserId}`
     const result = await (await fetch(url)).json()
+    const incoming = result.incomingTransfers
 
-    const latestTransactionId = (await prisma.status.findMany())[0].latestTransactionId
+    const misyori = await prisma.mikuziLog.findMany({
+        where: {
+            transactionId: null
+        }
+    })
 
-    result.incomingTransfers.sort((a: any, b: any) => a.id - b.id)
+    for (const mikuzi of misyori) {
+        const transaction = incoming.find((t: any) => t.externalData.customData.customTransactionId === mikuzi.customTransactionId)
+        if (transaction) {
+            console.log("mikuzi found", mikuzi.customTransactionId, mikuzi.userId)
+            await prisma.mikuziLog.update({
+                where: {
+                    id: mikuzi.id
+                },
+                data: {
+                    transactionId: transaction.id
+                }
+            })
+        }
+    }
+    console.log("shori batch end")
+}
 
-    const misyori = result.incomingTransfers.filter((t: any) => t.id > latestTransactionId)
-
-    console.log(misyori.map((m:any)=>m.id))
-
-}, 100)
+setInterval(shori, 1000 * 3)
 
 app.get('/', (req, res) => {
-  res.send('zou-mikuzi');
+    res.send('zou-mikuzi');
 });
 
-app.post("/mikuzi/:UserId", (req, res) => {
-  // 日付が変わってから、🐘が払われてたら今日のおみくじは払い出し済みなので
-  // もう引いてあるおみくじのデータを返す
-  // そうでない場合は、おみくじを引くためのリンクを生成
+app.post("/mikuzi/:UserId", async (req, res) => {
+    // 日付が変わってから、🐘が払われてたら今日のおみくじは払い出し済みなので
+    // もう引いてあるおみくじのデータを返す
+    // そうでない場合は、おみくじを引くためのリンクを生成
 
+    const mikuzi = await prisma.mikuziLog.findFirst({
+        where: {
+            userId: req.params.UserId,
+            createdAt: {
+                // 日本時間で今日の0時以降
+                gte: new Date(new Date().toLocaleDateString('ja-JP', {timeZone: 'Asia/Tokyo'}))
+            }
+        }
+    })
 
-    res.send("mikuzi");
+    if (mikuzi) {
+        // もう今日は引いて、支払い済みな時
+        if(mikuzi.transactionId) {
+            res.send(`#${mikuzi.message}`)
+        } else {
+            const payUrl = `https://zoubank.resonite.love/send?sendTo=${zouBotUserId}&amount=100&customTransactionId=${mikuzi.customTransactionId}`
+            res.send(payUrl)
+        }
+    } else {
+        const customTransactionId = Math.random().toString(36).slice(-8)
+        const mikuziMessage = await prisma.mikuziBuffer.findFirst();
+
+        if(!mikuziMessage) {
+            res.send("no mikuzi")
+            return
+        }
+
+        // bufferから消す
+        await prisma.mikuziBuffer.delete({
+            where: {
+                id: mikuziMessage.id
+            }
+        })
+
+        await prisma.mikuziLog.create({
+            data: {
+                userId: req.params.UserId,
+                customTransactionId,
+                message: mikuziMessage.message
+            }
+        })
+
+        const payUrl = `https://zoubank.resonite.love/send?sendTo=${zouBotUserId}&amount=100&customTransactionId=${customTransactionId}`
+        res.send(payUrl)
+    }
 })
 
 app.listen(3000, () => {
-  console.log('Example app listening on port 3000!');
+    console.log('Example app listening on port 3000!');
 });
