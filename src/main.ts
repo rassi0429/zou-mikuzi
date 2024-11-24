@@ -115,7 +115,7 @@ app.get('/', (req, res) => {
     res.send('zou-mikuzi');
 });
 
-app.post("/mikuzi/:UserId", async (req, res) => {
+app.get("/mikuzi/:UserId", async (req, res) => {
     // 日付が変わってから、🐘が払われてたら今日のおみくじは払い出し済みなので
     // もう引いてあるおみくじのデータを返す
     // そうでない場合は、おみくじを引くためのリンクを生成
