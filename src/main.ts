@@ -138,7 +138,7 @@ app.get("/mikuzi/:UserId", async (req, res) => {
             // mikuzi.messageはJSONで、result, message, ganbo, renai, gakumon, shobai, byoukiが入ってる
             // その順番で改行区切りで返す
             const result = JSON.parse(mikuzi.message)
-            res.send(`${result.result}\n${result.message}\n${result.ganbo}\n${result.renai}\n${result.gakumon}\n${result.shobai}\n${result.byouki}`)
+            res.send(`${result.result}\n${result.message.replace("\n", "")}\n${result.ganbo}\n${result.renai}\n${result.gakumon}\n${result.shobai}\n${result.byouki}`)
 
             // res.send(`#${mikuzi.message}`)
         } else {
