@@ -124,8 +124,8 @@ app.get("/mikuzi/:UserId", async (req, res) => {
         where: {
             userId: req.params.UserId,
             createdAt: {
-                // 日本時間の今日の0時
-                gte: new Date(new Date(new Date().getTime() - 9* 60 * 1000).setHours(15, 0, 0, 0))
+                // 5時間前までのデータを取得
+                gte: new Date(new Date().getTime() - 1000 * 60 * 60 * 5)
             }
         }
     })
